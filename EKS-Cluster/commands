@@ -1,5 +1,12 @@
 # for creating cluster
-eksctl create cluster --name eksctl-test --nodegroup-name ng-default --node-type t3.micro --nodes 2 --profile xxx
+#eksctl create cluster --name <name> --nodegroup-name ng-default --node-type t3.micro --nodes 2 --profile xxx
+#eksctl create cluster --name <name> --nodegroup-name ng-default --node-type t3a.large --nodes 2 --profile xxx
 
 # cluster delete
-eksctl delete cluster eksctl-test --profile xxx
+#eksctl delete cluster <name> --profile xxx
+
+#ECR login
+
+#aws ecr get-login-password --region us-east-1 --profile xxx | docker login --username AWS --password-stdin AccountID.dkr.ecr.us-east-1.amazonaws.com/<reponame>
+
+

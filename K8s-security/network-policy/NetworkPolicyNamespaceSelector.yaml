@@ -1,0 +1,91 @@
+#There are existing Pods in Namespace space1 and space2 .
+#We need a new NetworkPolicy named np that restricts all Pods in Namespace space1 to only have outgoing traffic to Pods in Namespace space2 . Incoming traffic not affected.
+#We also need a new NetworkPolicy named np that restricts all Pods in Namespace space2 to only have incoming traffic from Pods in Namespace space1 . Outgoing traffic not affected.
+#The NetworkPolicies should still allow outgoing DNS traffic on port 53 TCP and UDP.
+
+#controlplane $ kubectl get pods -n space1 --show-labels
+#NAME     READY   STATUS    RESTARTS   AGE   LABELS
+#app1-0   1/1     Running   0          51s   app=app1,controller-revision-hash=app1-58f9476d9f,statefulset.kubernetes.io/pod-name=app1-0
+#controlplane $ kubectl get pods -n space2 --show-labels
+#NAME              READY   STATUS    RESTARTS   AGE   LABELS
+#microservice1-0   1/1     Running   0          68s   app=microservice1,controller-revision-hash=microservice1-5846475cbc,statefulset.kubernetes.io/pod-name=microservice1-0
+#microservice2-0   1/1     Running   0          68s   app=microservice2,controller-revision-hash=microservice2-66b65db57b,statefulset.kubernetes.io/pod-name=microservice2-0
+#controlplane $ kubectl get svc -n space1 --show-labels
+#NAME   TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)   AGE   LABELS
+#app1   ClusterIP   10.105.71.111   <none>        80/TCP    84s   app=app1
+#controlplane $ kubectl get svc -n space2 --show-labels
+#NAME            TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)   AGE   LABELS
+#microservice1   ClusterIP   10.97.53.35     <none>        80/TCP    95s   app=microservice1
+#microservice2   ClusterIP   10.99.128.112   <none>        80/TCP    95s   app=microservice2
+#controlplane $ k get ns --show-labels
+#NAME                 STATUS   AGE     LABELS
+#default              Active   30d     kubernetes.io/metadata.name=default
+#kube-node-lease      Active   30d     kubernetes.io/metadata.name=kube-node-lease
+#kube-public          Active   30d     kubernetes.io/metadata.name=kube-public
+#kube-system          Active   30d     kubernetes.io/metadata.name=kube-system
+#local-path-storage   Active   30d     kubernetes.io/metadata.name=local-path-storage
+#space1               Active   2m33s   kubernetes.io/metadata.name=space1
+#space2               Active   2m33s   kubernetes.io/metadata.name=space2
+
+
+#Tip
+#For learning you can check the NetworkPolicy Editor
+#The namespaceSelector from NPs works with Namespace labels, so first we check existing labels for Namespaces
+#k get ns --show-labels
+
+#Solution Part 1
+#Create the first NP:
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: np
+  namespace: space1
+spec:
+  podSelector: {}
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+     - namespaceSelector:
+        matchLabels:
+         kubernetes.io/metadata.name: space2
+  - ports:
+    - port: 53
+      protocol: TCP
+    - port: 53
+      protocol: UDP
+---
+#Solution Part 2
+#Create the second NP:
+
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: np
+  namespace: space2
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  ingress:
+   - from:
+     - namespaceSelector:
+        matchLabels:
+         kubernetes.io/metadata.name: space1
+
+#Verify
+# these should work
+#k -n space1 exec app1-0 -- curl -m 1 microservice1.space2.svc.cluster.local
+#k -n space1 exec app1-0 -- curl -m 1 microservice2.space2.svc.cluster.local
+#k -n space1 exec app1-0 -- nslookup tester.default.svc.cluster.local
+#k -n kube-system exec -it validate-checker-pod -- curl -m 1 app1.space1.svc.cluster.local
+
+# these should not work
+#k -n space1 exec app1-0 -- curl -m 1 tester.default.svc.cluster.local
+#k -n kube-system exec -it validate-checker-pod -- curl -m 1 microservice1.space2.svc.cluster.local
+#k -n kube-system exec -it validate-checker-pod -- curl -m 1 microservice2.space2.svc.cluster.local
+#k -n default run nginx --image=nginx:1.21.5-alpine --restart=Never -i --rm  -- curl -m 1 microservice1.space2.svc.cluster.local
+
+

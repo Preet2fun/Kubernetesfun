@@ -1,0 +1,52 @@
+# Create a new default deny NP
+#There are existing Pods in Namespace app .
+#We need a new default-deny NetworkPolicy named deny-out for all outgoing traffic from Namespace app .
+#It should still allow DNS traffic on port 53 TCP and UDP.
+
+#controlplane $ k get pods -n app --show-labels
+#NAME              READY   STATUS    RESTARTS   AGE    LABELS
+#app1-0            1/1     Running   0          100s   app=app1,controller-revision-hash=app1-58f9476d9f,statefulset.kubernetes.io/pod-name=app1-0
+#microservice1-0   1/1     Running   0          100s   app=microservice1,controller-revision-hash=microservice1-5846475cbc,statefulset.kubernetes.io/pod-name=microservice1-0
+#controlplane $ k get svc -n app --show-labels
+#NAME            TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)   AGE     LABELS
+#app1            ClusterIP   10.101.175.171   <none>        80/TCP    2m11s   app=app1
+#microservice1   ClusterIP   10.104.59.135    <none>        80/TCP    2m11s   app=microservice1
+
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: deny-out
+  namespace: app
+spec:
+  podSelector: {}
+  policyTypes:
+  - Egress
+  egress:
+  - ports:
+    - port: 53
+      protocol: TCP
+    - port: 53
+      protocol: UDP
+
+#And test:
+
+# these should fail
+#k -n app exec app1-0 -- curl www.google.com
+#k -n app exec microservice1-0 -- curl www.google.com
+#k -n app exec app1-0 -- curl microservice1
+#k -n app exec microservice1-0 -- curl app1
+
+# DNS should still work
+#k -n app exec app1-0 -- nslookup www.google.com
+#k -n app exec microservice1-0 -- nslookup www.google.com
+#k -n app exec app1-0 -- nslookup microservice1
+#k -n app exec microservice1-0 -- nslookup app1
+
+#Is Ingress still allowed? We test by contacting from another Namespace:
+
+
+# these should still work
+#k -n default run nginx --image=nginx:1.21.5-alpine --restart=Never -i --rm  -- curl app1.app.svc.cluster.local
+#k -n default run nginx --image=nginx:1.21.5-alpine --restart=Never -i --rm  -- curl microservice1.app.svc.cluster.local
+
