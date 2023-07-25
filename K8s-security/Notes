@@ -215,3 +215,115 @@ https://kubernetes.io/docs/setup/best-practices/certificates
 # openssl req -new -key 60099.key -out 60099.csr
 # # set Common Name = 60099@internal.users
 
+#for getting any unencrypted secret from etcd
+# access secret int etcd
+# cat /etc/kubernetes/manifests/kube-apiserver.yaml | grep etcd
+
+# ETCDCTL_API=3 etcdctl --cert /etc/kubernetes/pki/apiserver-etcd-client.crt --key /etc/kubernetes/pki/apiserver-etcd-client.key --cacert /etc/kubernetes/pki/etcd/ca.crt endpoint health
+
+# # --endpoints "https://127.0.0.1:2379" not necessary because we’re on same node
+
+# ETCDCTL_API=3 etcdctl --cert /etc/kubernetes/pki/apiserver-etcd-client.crt --key /etc/kubernetes/pki/apiserver-etcd-client.key --cacert /etc/kubernetes/pki/etcd/ca.crt get /registry/secrets/default/secret1
+
+
+# Enable ETCD Encryption
+# Create an EncryptionConfiguration file at /etc/kubernetes/etcd/ec.yaml and make ETCD use it.
+# One provider should be of type aesgcm with password this-is-very-sec . All new secrets should be encrypted using this one.
+# One provider should be the identity one to still be able to read existing unencrypted secrets.
+
+# Solution
+
+# Generate EncryptionConfiguration:
+
+# mkdir -p /etc/kubernetes/etcd
+# echo -n this-is-very-sec | base64
+# apiVersion: apiserver.config.k8s.io/v1
+# kind: EncryptionConfiguration
+# resources:
+#   - resources:
+#     - secrets
+#     providers:
+#     - aesgcm:
+#         keys:
+#         - name: key1
+#           secret: dGhpcy1pcy12ZXJ5LXNlYw==
+#     - identity: {}
+
+# 1. Add a new volume and volumeMount in /etc/kubernetes/manifests/kube-apiserver.yaml, so that the container can access the file.
+
+# 2. Pass the new file as argument: --encryption-provider-config=/etc/kubernetes/etcd/ec.yaml
+
+# spec:
+#   containers:
+#   - command:
+#     - kube-apiserver
+# ...
+#     - --encryption-provider-config=/etc/kubernetes/etcd/ec.yaml
+# ...
+#     volumeMounts:
+#     - mountPath: /etc/kubernetes/etcd
+#       name: etcd
+#       readOnly: true
+# ...
+#   hostNetwork: true
+#   priorityClassName: system-cluster-critical
+#   volumes:
+#   - hostPath:
+#       path: /etc/kubernetes/etcd
+#       type: DirectoryOrCreate
+#     name: etcd
+# ...
+
+# Wait till apiserver was restarted:
+
+# watch crictl ps
+
+
+
+# Create a Pod named prime image nginx:alpine .
+
+# The container should run as privileged .
+
+# Install iptables (apk add iptables ) inside the Pod.
+
+# Test the capabilities using iptables -L .
+
+
+# Solution
+
+# Generate Pod yaml
+
+
+# k run prime --image=nginx:alpine -oyaml --dry-run=client --command -- sh -c 'sleep 1d' > pod.yaml
+
+# Set the privileged :
+
+
+# apiVersion: v1
+# kind: Pod
+# metadata:
+#   labels:
+#     run: prime
+#   name: prime
+# spec:
+#   containers:
+#   - command:
+#     - sh
+#     - -c
+#     - sleep 1d
+#     image: nginx:alpine
+#     name: prime
+#     securityContext:
+#       privileged: true
+#   dnsPolicy: ClusterFirst
+#   restartPolicy: Always
+
+# Now exec into the Pod and run apk add iptables .
+
+
+# k exec prime -- apk add iptables
+
+# You'll see that iptables -L needs capabilities to run which it here gets through privileged.
+
+
+# k exec prime -- iptables -L
