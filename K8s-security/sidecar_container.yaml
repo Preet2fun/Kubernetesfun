@@ -1,0 +1,18 @@
+metadata:
+  name: simple-webapp
+  labels:
+    app: webapp
+spec:
+  containers:
+    - name: main-application
+      image: bash
+      command: ["sh","-c","ping google.com"]
+      
+    - name: sidecar-container
+      image: ubuntu
+      command: ["sh","-c","apt-get update && apt-get install iptables -y && iptables -L && sleep 1d"]
+      securityContext:
+         capabilities:
+           add: ["NET_ADMIN"]
+#root@master-node:/home/motadata# kubectl logs -f simple-webapp -c sidecar-container
+# check log using above command
