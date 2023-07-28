@@ -1,0 +1,82 @@
+apiVersion: templates.gatekeeper.sh/v1beta1
+kind: ConstraintTemplate
+metadata:
+  name: k8strustedimages
+spec:
+  crd:
+    spec:
+      names:
+        kind: K8sTrustedImages
+  targets:
+    - target: admission.k8s.gatekeeper.sh
+      rego: |
+        package k8strustedimages
+
+        violation[{"msg": msg}] {
+          image := input.review.object.spec.containers[_].image
+          not startswith(image, "docker.io/")
+          not startswith(image, "k8s.gcr.io/")
+          msg := "not trusted image!"
+        }
+
+
+
+# root@master-node:/home/motadata# kubectl get ConstraintTemplate
+# NAME               AGE
+# k8strustedimages   7m15s
+# root@master-node:/home/motadata# kubectl get ConstraintTemplate k8strustedimages
+# NAME               AGE
+# k8strustedimages   7m48s
+# root@master-node:/home/motadata# kubectl describe ConstraintTemplate k8strustedimages
+# Name:         k8strustedimages
+# Namespace:
+# Labels:       <none>
+# Annotations:  <none>
+# API Version:  templates.gatekeeper.sh/v1beta1
+# Kind:         ConstraintTemplate
+# Metadata:
+#   Creation Timestamp:  2023-07-28T06:10:39Z
+#   Generation:          1
+#   Resource Version:    4034458
+#   UID:                 598fcfa4-130a-4232-9146-6f6addbc74b2
+# Spec:
+#   Crd:
+#     Spec:
+#       Names:
+#         Kind:  K8sTrustedImages
+#   Targets:
+#     Rego:  package k8strustedimages
+
+# violation[{"msg": msg}] {
+#   image := input.review.object.spec.containers[_].image
+#   not startswith(image, "docker.io/")
+#   not startswith(image, "k8s.gcr.io/")
+#   msg := "not trusted image!"
+# }
+
+#     Target:  admission.k8s.gatekeeper.sh
+# Status:
+#   By Pod:
+#     Id:                   gatekeeper-audit-5ddd4ff4cc-vqc9x
+#     Observed Generation:  1
+#     Operations:
+#       audit
+#       status
+#     Template UID:         598fcfa4-130a-4232-9146-6f6addbc74b2
+#     Id:                   gatekeeper-controller-manager-7d864bb4d5-dvcxm
+#     Observed Generation:  1
+#     Operations:
+#       webhook
+#     Template UID:         598fcfa4-130a-4232-9146-6f6addbc74b2
+#     Id:                   gatekeeper-controller-manager-7d864bb4d5-ftw7x
+#     Observed Generation:  1
+#     Operations:
+#       webhook
+#     Template UID:         598fcfa4-130a-4232-9146-6f6addbc74b2
+#     Id:                   gatekeeper-controller-manager-7d864bb4d5-sc2rx
+#     Observed Generation:  1
+#     Operations:
+#       webhook
+#     Template UID:  598fcfa4-130a-4232-9146-6f6addbc74b2
+#   Created:         true
+# Events:            <none>
