@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  #reationTimestamp: null
+  labels:
+    run: test-sec
+  name: test-sec
+spec:
+  containers:
+  - image: httpd
+    name: test-sec
+    securityContext:
+      readOnlyRootFilesystem: true
+    volumeMounts:
+    - name: sec-ctx-vol
+      mountPath: /usr/local/apache2/logs/
+    #resources: {}
+  dnsPolicy: ClusterFirst
+  restartPolicy: Always
+volumes:
+  - name: sec-ctx-vol
+    emptyDir: {}
+status: {}
